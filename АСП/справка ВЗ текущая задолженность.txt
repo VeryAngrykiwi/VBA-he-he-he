@@ -1,0 +1,440 @@
+*меин*
+
+Option Explicit
+
+Sub Current_Debt_Vzaimno()
+
+   Dim oExcel As Excel.Application
+   Dim oWB, OWB2 As Workbook
+   Dim x, xLR, lRetVal As Long
+   Dim ans, ansFF, ansD, nameSave, ansLOA, LPN, LGP As Variant
+   Dim objDDLbrA, objDDLadr, objDDLdat, objDDLbrO, objDDLloa, objDDLdaINT, objDDLfulldept, _
+   objDDLCIAP, objDDLfullPR, objDDLOD, objDDLPR, sig, pos As ContentControl
+   
+   Set objDDLbrA = ThisDocument.SelectContentControlsByTitle("browAdre").Item(1)
+   Set objDDLadr = ThisDocument.SelectContentControlsByTitle("adress").Item(1)
+   Set objDDLdat = ThisDocument.SelectContentControlsByTitle("date").Item(1)
+   Set objDDLbrO = ThisDocument.SelectContentControlsByTitle("browObli").Item(1)
+   Set objDDLloa = ThisDocument.SelectContentControlsByTitle("loan").Item(1)
+   Set objDDLCIAP = ThisDocument.SelectContentControlsByTitle("CIAP").Item(1)
+   Set objDDLdaINT = ThisDocument.SelectContentControlsByTitle("daINT").Item(1)
+   Set objDDLfulldept = ThisDocument.SelectContentControlsByTitle("fulldept").Item(1)
+   Set objDDLfullPR = ThisDocument.SelectContentControlsByTitle("fullPR").Item(1)
+   Set objDDLOD = ThisDocument.SelectContentControlsByTitle("OD").Item(1)
+   Set objDDLPR = ThisDocument.SelectContentControlsByTitle("PR").Item(1)
+   Set sig = ThisDocument.SelectContentControlsByTitle("signatory").Item(1)
+   Set pos = ThisDocument.SelectContentControlsByTitle("position").Item(1)
+   Set oExcel = Excel.Application
+    
+Application.ScreenUpdating = False
+
+oExcel.Visible = False
+
+Set oWB = oExcel.Workbooks.Open("\\192.168.81.12\share\Отдел сопровождения кредитования\Работа с просрочкой\КСМ\подвал\БД адреса (справка).xlsm")
+Set OWB2 = oExcel.Workbooks.Open("\\192.168.81.12\share\Отдел сопровождения кредитования\Работа с просрочкой\КСМ\подвал\из 1С.xlsm")
+
+oWB.Application.DisplayAlerts = False
+OWB2.Application.DisplayAlerts = False
+
+OWB2.UpdateLink Name:=OWB2.LinkSources, Type:=xlExcelLinks
+
+On Error GoTo ErrorHandler
+
+objDDLdat.Range.Text = Format(Date, "dd mmmm yyyy")
+
+ans = InputBox("Укажите номер договора", "Запрос Договора", "Какой-то договор, Транш")
+
+objDDLloa.Range.Text = ans
+
+If Mid(ans, 10, 1) = "Л" Then
+    objDDLCIAP.Range.Text = "Договору микрозайма с лимитом кредитования № "
+    Else:
+        objDDLCIAP.Range.Text = "Договору микрозайма №"
+End If
+        
+
+If sig.Range.Text = "Шемякина Светлана Игорьевна" Then
+pos.Range.Text = "Руководитель отдела сопровождения кредитования"
+    Else
+        If sig.Range.Text = "Кваско Сергей Михайлович" Then
+        pos.Range.Text = "Старший специалист отдела сопровождения кредитования"
+            Else
+            If sig.Range.Text = "Вакантно" Then
+            pos.Range.Text = "Какая-то долженность"
+            End If
+        End If
+End If
+
+With ActiveDocument.Content.Find
+ .Text = "Просроченная задолженность отсутствует"
+ .Forward = True
+ .Execute
+ If .Found = True Then .Parent.Text = ""
+End With
+
+With ActiveDocument.Range.Find
+        .Text = " пнк"
+        If .Execute = True Then
+            .Parent.Expand Unit:=wdParagraph
+            .Parent.Delete
+        End If
+End With
+
+With ActiveDocument.Range.Find
+        .Text = "Госпошлина"
+        If .Execute = True Then
+            .Parent.Expand Unit:=wdParagraph
+            .Parent.Delete
+        End If
+End With
+
+
+objDDLbrA.Range.Text = WorksheetFunction.VLookup(Left(ans, 10), oWB.Sheets(1).Columns("A:B"), 2, 0)
+objDDLbrO.Range.Text = WorksheetFunction.VLookup(Left(ans, 10), oWB.Sheets(1).Columns("A:F"), 6, 0)
+objDDLadr.Range.Text = WorksheetFunction.VLookup(Left(ans, 10), oWB.Sheets(1).Columns("A:C"), 3, 0)
+
+'ansD = Trim(Left(ans, Len(ans) - 17))
+
+If Len(ans) < 24 And Len(ans) > 9 Then
+ansD = ans
+Else
+ansD = Trim(Left(ans, Len(ans) - 17))
+End If
+
+objDDLfulldept.Range.Text = Format(WorksheetFunction.VLookup(ansD, OWB2.Sheets(4).Columns("A:F"), 6, 0), "Standard")
+objDDLfullPR.Range.Text = СуммаПрописью(objDDLfulldept.Range.Text + 0)
+
+objDDLOD.Range.Text = Format(WorksheetFunction.VLookup(ansD, OWB2.Sheets(4).Columns("A:H"), 7, 0), "Standard")
+objDDLPR.Range.Text = Format(WorksheetFunction.VLookup(ansD, OWB2.Sheets(4).Columns("A:J"), 10, 0), "Standard")
+
+LPN = Format(WorksheetFunction.VLookup(ansD, OWB2.Sheets(4).Columns("A:K"), 11, 0), "Standard")
+LGP = Format(WorksheetFunction.VLookup(ansD, OWB2.Sheets(4).Columns("A:L"), 12, 0), "Standard")
+
+
+If LPN = "" And LGP = "" Then
+
+With ActiveDocument.Range.Find
+        .Text = "прцн"
+        If .Execute = True Then
+            .Parent.Collapse Direction:=wdCollapseEnd
+            .Parent.Select
+                With Selection
+                .TypeParagraph
+                .Delete Unit:=wdCharacter, Count:=1
+                .Text = "Просроченная задолженность отсутствует"
+                .Font.Bold = True
+                End With
+        End If
+End With
+    
+Else
+
+
+    If WorksheetFunction.VLookup(ansD, OWB2.Sheets(4).Columns("A:K"), 11, 0) > 0 Then
+
+        With ActiveDocument.Range.Find
+                .Text = "прцн"
+                If .Execute = True Then
+                    .Parent.Collapse Direction:=wdCollapseEnd
+                    .Parent.Select
+                        With Selection
+                        .TypeParagraph
+                        .Text = "Пени: " & LPN & " руб." & " пнк"
+                        End With
+                End If
+            End With
+            
+        With ActiveDocument.Range.Find
+            .Text = "пнк"
+            If .Execute = True Then
+            .Parent.Font.Color = vbWhite
+            End If
+        End With
+        
+    End If
+    
+        If WorksheetFunction.VLookup(ansD, OWB2.Sheets(4).Columns("A:L"), 12, 0) > 0 Then
+ 
+            With ActiveDocument.Range.Find
+                .Text = " пнк"
+                If .Execute = True Then
+                    .Parent.Collapse Direction:=wdCollapseEnd
+                    .Parent.Select
+                        With Selection
+                        .TypeParagraph
+                        .Text = "Госпошлина: " & LGP & " руб."
+                        End With
+                End If
+            End With
+            
+    End If
+    
+End If
+
+ansFF = InputBox("На какую дату расчет задолженности?", "Справка о текущей задолженности", Date)
+objDDLdaINT.Range.Text = Format(ansFF, "dd mmmm yyyy")
+
+Application.ScreenUpdating = True
+Application.ScreenRefresh
+
+oExcel.Quit
+
+MsgBox "Справка сформирована", vbInformation, "Справка о текущей задолженности"
+
+Exit Sub
+
+ErrorHandler:
+
+oExcel.Quit
+
+MsgBox "УПС! Документ не сформирован" & vbCrLf & "Категория ошибки: " & Err.Description & vbCrLf & "Источник ошибки: " _
+& Err.Source, vbCritical, "Справка о текущей задолженности"
+
+End Sub
+
+Sub savePDF_manual()
+
+Dim nameSave As Variant
+nameSave = InputBox("Как назвать?", "Ура, мы дошли до чекпоинт сохранение")
+ ActiveDocument.ExportAsFixedFormat OutputFileName:= _
+        "\\192.168.81.12\share\Отдел сопровождения кредитования\Работа с просрочкой\КСМ\справки, графики и прочее\" & nameSave & ".pdf" _
+        , ExportFormat:=wdExportFormatPDF, OpenAfterExport:=True, OptimizeFor:= _
+        wdExportOptimizeForPrint, Range:=wdExportAllDocument, From:=1, To:=1, _
+        Item:=wdExportDocumentContent, IncludeDocProps:=True, KeepIRM:=True, _
+        CreateBookmarks:=wdExportCreateNoBookmarks, DocStructureTags:=True, _
+        BitmapMissingFonts:=True, UseISO19005_1:=False
+        
+End Sub
+
+Sub savePDF_auto()
+
+Application.ScreenUpdating = False
+
+Dim saveName, FIO As Variant
+Dim objDDLbrO, objDDLloa As ContentControl
+
+Set objDDLbrO = ThisDocument.SelectContentControlsByTitle("browAdre").Item(1)
+Set objDDLloa = ThisDocument.SelectContentControlsByTitle("loan").Item(1)
+
+
+FIO = Left(objDDLbrO.Range.Text, WorksheetFunction.search(" ", objDDLbrO.Range.Text)) _
+& " " & Mid(objDDLbrO.Range.Text, WorksheetFunction.search(" ", objDDLbrO.Range.Text) + 1, 1) & "." _
+& Mid(objDDLbrO.Range.Text, WorksheetFunction.search(" ", objDDLbrO.Range.Text, WorksheetFunction.search(" ", objDDLbrO.Range.Text) + 1) + 1, 1) & "."
+
+saveName = Replace(FIO & " " & Left(objDDLloa.Range.Text, 10) & " Справка", "/", "")
+
+ ActiveDocument.ExportAsFixedFormat OutputFileName:= _
+        "\\192.168.81.12\share\Отдел сопровождения кредитования\Работа с просрочкой\КСМ\справки, графики и прочее\" & saveName & ".pdf" _
+        , ExportFormat:=wdExportFormatPDF, OpenAfterExport:=True, OptimizeFor:= _
+        wdExportOptimizeForPrint, Range:=wdExportAllDocument, From:=1, To:=1, _
+        Item:=wdExportDocumentContent, IncludeDocProps:=True, KeepIRM:=True, _
+        CreateBookmarks:=wdExportCreateNoBookmarks, DocStructureTags:=True, _
+        BitmapMissingFonts:=True, UseISO19005_1:=False
+        
+Application.ScreenUpdating = True
+
+End Sub
+
+Sub signUP()
+
+Dim sig, pos As ContentControl
+
+Set sig = ThisDocument.SelectContentControlsByTitle("signatory").Item(1)
+Set pos = ThisDocument.SelectContentControlsByTitle("position").Item(1)
+
+Application.ScreenUpdating = False
+
+If sig.Range.Text = "Шемякина Светлана Игорьевна" Then
+pos.Range.Text = "Руководитель отдела сопровождения кредитования"
+    Else
+        If sig.Range.Text = "Кваско Сергей Михайлович" Then
+        pos.Range.Text = "Старший специалист отдела сопровождения кредитования"
+            Else
+            If sig.Range.Text = "Вакантно" Then
+            pos.Range.Text = "Какая-то должность"
+            End If
+        End If
+End If
+
+Application.ScreenUpdating = True
+
+End Sub
+
+Sub summUP()
+
+Dim objDDLfulldept, objDDLfullPR As ContentControl
+
+Set objDDLfulldept = ThisDocument.SelectContentControlsByTitle("fulldept").Item(1)
+Set objDDLfullPR = ThisDocument.SelectContentControlsByTitle("fullPR").Item(1)
+
+Application.ScreenUpdating = False
+
+objDDLfullPR.Range.Text = СуммаПрописью(objDDLfulldept.Range.Text + 0)
+
+Application.ScreenUpdating = True
+
+End Sub
+
+Private Sub Прописью()
+    If Selection.Type <> wdSelectionNormal Then Exit Sub
+    Dim NNN, NNNOst, NNNLen
+    With CreateObject("VBScript.RegExp"): .Global = True: .Pattern = "\D": NNN = .Replace(Selection.Range.Text, ""): End With
+    NNNLen = Len(NNN)
+    If NNNLen > 17 Then Exit Sub
+    NNNOst = Format(Right(NNN, 2), "00", 2)
+    If NNNLen > 2 Then NNN = Left(NNN, NNNLen - 2) Else NNN = 0
+    ' NNN = NNN & "," & NNNOst
+    If Len(NNN) Then Selection.Start = Selection.End: Selection.Range.Text = " (" & СУМ_ПРОП(NNN, NNNOst)
+End Sub
+
+*функ*
+
+Option Private Module
+
+Public Function СуммаПрописью(x As Double) As String
+If x > 999999999999.99 Then
+СуммаПрописью = "Аргумент больше 999 999 999 999.99!"
+ElseIf x < 0 Then
+СуммаПрописью = "Аргумент отрицательный!"
+Else
+x = FormatNumber(x, 2)
+Dim b As Byte, b1 As Byte, b2 As Byte, kop As String
+b = (x - Fix(x)) * 100
+b2 = b \ 10
+b1 = b Mod 10
+If b2 <> 1 And b1 = 1 Then
+kop = " копейка"
+ElseIf b2 <> 1 And b1 > 1 And b1 < 5 Then
+kop = " копейки"
+Else
+kop = " копеек"
+End If
+kop = b2 & b1 & kop
+Dim y(1 To 4) As Integer, i1 As Byte
+For i1 = 1 To 4
+x = Fix(x) / 1000
+y(i1) = (x - Fix(x)) * 1000
+Next
+Dim Text(1 To 4) As String, i2 As Byte, y1 As Byte, y2 As Byte, _
+y3 As Byte, Text0 As String, Text1 As String, Text2 As String, Text3 As String, _
+Text4 As String
+For i2 = 1 To 4
+y1 = y(i2) Mod 10
+y2 = (y(i2) - y1) / 10 Mod 10
+y3 = y(i2) \ 100
+Text1 = Choose(y3 + 1, "", "сто ", "двести ", "триста ", "четыреста ", _
+"пятьсот ", "шестьсот ", "семьсот ", "восемьсот ", "девятьсот ")
+Text2 = Choose(y2 + 1, "", "", "двадцать ", "тридцать ", "сорок ", _
+"пятьдесят ", "шестьдесят ", "семьдесят ", "восемьдесят ", "девяносто ")
+If y2 = 1 Then
+Text3 = Choose(y1 + 1, "десять ", "одиннадцать ", "двенадцать ", _
+"тринадцать ", "четырнадцать ", "пятнадцать ", "шестнадцать ", _
+"семнадцать ", "восемнадцать ", "девятнадцать ")
+ElseIf y2 <> 1 And i2 = 2 Then
+Text3 = Choose(y1 + 1, "", "одна ", "две ", "три ", "четыре ", "пять ", _
+"шесть ", "семь ", "восемь ", "девять ")
+Else
+Text3 = Choose(y1 + 1, "", "один ", "два ", "три ", "четыре ", "пять ", _
+"шесть ", "семь ", "восемь ", "девять ")
+End If
+If y2 <> 1 And y1 = 1 Then
+Text4 = Choose(i2, "рубль ", "тысяча ", "миллион ", "миллиард ")
+ElseIf y2 <> 1 And y1 > 1 And y1 < 5 Then
+Text4 = Choose(i2, "рубля ", "тысячи ", "миллиона ", "миллиарда ")
+ElseIf y1 = 0 And y2 = 0 And y3 = 0 Then
+Text4 = Choose(i2, "рублей ", "", "", "")
+Else
+Text4 = Choose(i2, "рублей ", "тысяч ", "миллионов ", "миллиардов ")
+End If
+Text(i2) = Text1 & Text2 & Text3 & Text4
+Next
+If y(1) + y(2) + y(3) + y(4) = 0 Then
+Text0 = "ноль рублей " & kop
+Else
+Text0 = Text(4) & Text(3) & Text(2) & Text(1) & kop
+End If
+СуммаПрописью = Replace(Text0, Left(Text0, 1), UCase(Left(Text0, 1)), 1, 1)
+End If
+End Function
+
+
+Function СУМ_ПРОП$(ByVal ЧИСЛО#, ByVal ЧИСЛОКОП#)
+    Dim rub$, kop$, ed, des, sot, nadc, RAZR, i&, m$
+    If ЧИСЛО >= 1E+15 Or ЧИСЛО < 0 Then Exit Function
+    sot = Array("", " сто", " двести", " триста", " четыреста", " пятьсот", " шестьсот", " семьсот", " восемьсот", " девятьсот")
+    des = Array("", "", " двадцать", " тридцать", " сорок", " пятьдесят", " шестьдесят", " семьдесят", " восемьдесят", " девяносто")
+    nadc = Array(" десять", " одиннадцать", " двенадцать", " тринадцать", " четырнадцать", " пятнадцать", " шестнадцать", " семнадцать", " восемнадцать", " девятнадцать")
+    ed = Array("", " один", " два", " три", " четыре", " пять", " шесть", " семь", " восемь", " девять", "", " одна", " две")
+    RAZR = Array(" триллион", " триллиона", " триллионов", " миллиард", " миллиарда", " миллиардов", " миллион", " миллиона", " миллионов", " тысяча", " тысячи", " тысяч", ") рубль ", ") рубля ", ") рублей ")
+    rub = Left(Format(ЧИСЛО, "000000000000000"), 15)
+    kop = Left(Format(ЧИСЛОКОП, "00"), 2)
+    If CDbl(rub) = 0 Then m = " ноль"
+    For i = 1 To Len(rub) Step 3
+        If Mid(rub, i, 3) <> "000" Or i = Len(rub) - 2 Then
+            m = m & sot(CInt(Mid(rub, i, 1))) & IIf(Mid(rub, i + 1, 1) = "1", nadc(CInt(Mid(rub, i + 2, 1))), _
+                    des(CInt(Mid(rub, i + 1, 1))) & ed(CInt(Mid(rub, i + 2, 1)) + IIf(i = Len(rub) - 5 And CInt(Mid(rub, i + 2, 1)) < 3, 10, 0))) & _
+                    IIf(Mid(rub, i + 1, 1) = "1" Or (Mid(rub, i + 2, 1) + 9) Mod 10 >= 4, RAZR(i + 1), IIf(Mid(rub, i + 2, 1) = "1", RAZR(i - 1), RAZR(i)))
+        End If
+    Next i
+    m = LTrim(m)
+    СУМ_ПРОП = RTrim(Left(m, 1)) & Mid(m, 2) & kop & " копе" & IIf(kop \ 10 = 1 Or ((kop + 9) Mod 10) >= 4, "ек", IIf(kop Mod 10 = 1, "йка", "йки"))
+End Function
+
+Function RemText(fromText As String, toText As String) As Integer
+  Dim rngSt, rngEnd As Long
+  'Количество замен
+  Dim retval As Integer
+  Dim blockFound As Boolean
+  Dim rng As Range 'Где ищем
+  'Начало фрагмента
+  rngSt = ActiveDocument.Range.Start
+  'конец фрагмента
+  rngEnd = ActiveDocument.Range.End
+  Set rng = ActiveDocument.Range
+  
+  Do
+    rng.SetRange rngSt, rngEnd
+    blockFound = False
+    With rng.Find
+      'Ищем начальный текст с конца документа
+      .Text = fromText
+      .Forward = False
+      If .Execute Then
+        rngSt = .Parent.Start
+      Else
+        Exit Do
+      End If
+      'Переопределяем диапазон поиска
+      rng.SetRange rngSt, rngEnd
+      'Ищем конечный текст, начиная с начального текста и до конца документа
+      .Text = toText
+      .Forward = True
+      If .Execute Then
+        rngEnd = .Parent.End
+        blockFound = True
+      End If
+    End With
+    If blockFound Then
+      ActiveDocument.Range(rngSt, rngEnd).Delete
+      retval = retval + 1
+    End If
+    rngEnd = rngSt
+    rngSt = ActiveDocument.Range.Start
+  Loop While True
+  RemText = retval
+  
+End Function
+
+Function faw(r As Range, s As String) As Boolean
+Dim rdup As Range
+Set rdup = r.Duplicate
+rdup.Find.Wrap = wdFindStop
+
+Do While rdup.Find.Execute(findtext:=s, MatchWildcards:=True) = True
+   If (Not rdup.InRange(r)) Then Exit Do
+   rdup.Font.ColorIndex = wdRed
+   rdup.Collapse wdCollapseEnd
+Loop
+
+faw = True
+End Function

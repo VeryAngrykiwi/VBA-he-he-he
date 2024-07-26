@@ -1,0 +1,392 @@
+*маин*
+
+Option Explicit
+
+Sub spravkaVZ()
+
+   Dim oExcel As Excel.Application
+   Dim oWB As Workbook
+   Dim x, xLR, lRetVal As Long
+   Dim ans, ansFF, nameSave, ansLOA As Variant
+   Dim objDDLbrA, objDDLadr, objDDLdat, objDDLbrO, objDDLloa, objDDLloa2, objDDLful, sig, pos, objDDLCIAP, objDDLCIAP2  As ContentControl
+   Set objDDLbrA = ThisDocument.SelectContentControlsByTitle("browAdre").Item(1)
+   Set objDDLadr = ThisDocument.SelectContentControlsByTitle("adress").Item(1)
+   Set objDDLdat = ThisDocument.SelectContentControlsByTitle("date").Item(1)
+   Set objDDLbrO = ThisDocument.SelectContentControlsByTitle("browObli").Item(1)
+   Set objDDLloa = ThisDocument.SelectContentControlsByTitle("loan").Item(1)
+   Set objDDLloa2 = ThisDocument.SelectContentControlsByTitle("loan2").Item(1)
+   Set objDDLful = ThisDocument.SelectContentControlsByTitle("fulfilled").Item(1)
+   Set objDDLCIAP = ThisDocument.SelectContentControlsByTitle("CIAP").Item(1)
+   Set objDDLCIAP2 = ThisDocument.SelectContentControlsByTitle("CIAP2").Item(1)
+   Set sig = ThisDocument.SelectContentControlsByTitle("signatory").Item(1)
+   Set pos = ThisDocument.SelectContentControlsByTitle("position").Item(1)
+   Set oExcel = Excel.Application
+    
+Application.ScreenUpdating = False
+
+oExcel.Visible = False
+
+On Error GoTo ErrorHandler
+
+objDDLdat.Range.Text = Format(Date, "dd mmmm yyyy")
+
+ans = InputBox("Укажите номер договора", "Запрос Договора", "Какой-то договор, Транш")
+
+objDDLloa.Range.Text = ans
+objDDLloa2.Range.Text = ans
+Set oWB = oExcel.Workbooks.Open("\\192.168.81.12\share\Отдел сопровождения кредитования\Работа с просрочкой\КСМ\подвал\БД адреса (справка).xlsm")
+
+If Mid(ans, 10, 1) = "Л" Then
+    objDDLCIAP.Range.Text = "Договору микрозайма с лимитом кредитования № "
+    objDDLCIAP2.Range.Text = "Договору микрозайма с лимитом кредитования № "
+    Else:
+        objDDLCIAP.Range.Text = "Договору микрозайма №"
+        objDDLCIAP2.Range.Text = "Договору микрозайма № "
+End If
+        
+
+If sig.Range.Text = "Шемякина Светлана Игорьевна" Then
+pos.Range.Text = "Руководитель отдела сопровождения кредитования"
+    Else
+        If sig.Range.Text = "Кваско Сергей Михайлович" Then
+        pos.Range.Text = "Старший специалист отдела сопровождения кредитования"
+            Else
+            If sig.Range.Text = "Кто-то" Then
+            pos.Range.Text = "Какая-то долженность"
+            End If
+        End If
+End If
+
+objDDLbrA.Range.Text = WorksheetFunction.VLookup(Left(ans, 10), oWB.Sheets(1).Columns("A:B"), 2, 0)
+objDDLbrO.Range.Text = WorksheetFunction.VLookup(Left(ans, 10), oWB.Sheets(1).Columns("A:F"), 6, 0)
+objDDLadr.Range.Text = WorksheetFunction.VLookup(Left(ans, 10), oWB.Sheets(1).Columns("A:C"), 3, 0)
+
+ansFF = InputBox("Укажите дату закрытия договора", "Полное погашение Договора", Date)
+objDDLful.Range.Text = Format(ansFF, "dd mmmm yyyy")
+
+Application.ScreenUpdating = True
+Application.ScreenRefresh
+
+oExcel.Quit
+
+MsgBox "Справка сформирована", vbInformation, "ВЗАИМНО Справка об исполнении обязательств"
+
+Exit Sub
+
+ErrorHandler:
+MsgBox "УПС! Документ не сформирован", vbCritical, "Справка об исполнении обязательств"
+
+End Sub
+
+Sub savePDF_manual()
+
+Dim nameSave As Variant
+nameSave = InputBox("Как назвать?", "Ура, мы дошли до чекпоинт сохранение")
+ ActiveDocument.ExportAsFixedFormat OutputFileName:= _
+        "\\192.168.81.12\share\Отдел сопровождения кредитования\Работа с просрочкой\КСМ\справки, графики и прочее\" & nameSave & ".pdf" _
+        , ExportFormat:=wdExportFormatPDF, OpenAfterExport:=True, OptimizeFor:= _
+        wdExportOptimizeForPrint, Range:=wdExportAllDocument, From:=1, To:=1, _
+        Item:=wdExportDocumentContent, IncludeDocProps:=True, KeepIRM:=True, _
+        CreateBookmarks:=wdExportCreateNoBookmarks, DocStructureTags:=True, _
+        BitmapMissingFonts:=True, UseISO19005_1:=False
+        
+End Sub
+
+Sub savePDF_auto()
+
+Application.ScreenUpdating = False
+
+Dim saveName, FIO As Variant
+Dim objDDLbrO, objDDLloa As ContentControl
+
+Set objDDLbrO = ThisDocument.SelectContentControlsByTitle("browAdre").Item(1)
+Set objDDLloa = ThisDocument.SelectContentControlsByTitle("loan").Item(1)
+
+
+FIO = Left(objDDLbrO.Range.Text, WorksheetFunction.Search(" ", objDDLbrO.Range.Text)) _
+& " " & Mid(objDDLbrO.Range.Text, WorksheetFunction.Search(" ", objDDLbrO.Range.Text) + 1, 1) & "." _
+& Mid(objDDLbrO.Range.Text, WorksheetFunction.Search(" ", objDDLbrO.Range.Text, WorksheetFunction.Search(" ", objDDLbrO.Range.Text) + 1) + 1, 1) & "."
+
+saveName = Replace(FIO & " " & Left(objDDLloa.Range.Text, 10) & " Справка", "/", "")
+
+ ActiveDocument.ExportAsFixedFormat OutputFileName:= _
+        "\\192.168.81.12\share\Отдел сопровождения кредитования\Работа с просрочкой\КСМ\справки, графики и прочее\" & saveName & ".pdf" _
+        , ExportFormat:=wdExportFormatPDF, OpenAfterExport:=True, OptimizeFor:= _
+        wdExportOptimizeForPrint, Range:=wdExportAllDocument, From:=1, To:=1, _
+        Item:=wdExportDocumentContent, IncludeDocProps:=True, KeepIRM:=True, _
+        CreateBookmarks:=wdExportCreateNoBookmarks, DocStructureTags:=True, _
+        BitmapMissingFonts:=True, UseISO19005_1:=False
+        
+Application.ScreenUpdating = True
+
+End Sub
+
+Sub remove_Zalog()
+
+Call RemText("Предмет залога", "Залогодержателя.")
+Selection.Delete
+'Selection.TypeBackspace
+
+End Sub
+
+Sub insert_Zalog()
+
+Application.ScreenUpdating = True
+
+Dim oExcel As Excel.Application
+Dim oWB As Workbook
+
+
+Dim objDDLloa As ContentControl
+Dim zalog, zalogDB, Plcar, PlYear, PlGN, PlVIN, zalogER, PledgeText As String
+Dim dateQUE, dateQUEFULL As Date
+
+Set objDDLloa = ThisDocument.SelectContentControlsByTitle("loan").Item(1)
+Set oExcel = Excel.Application
+
+Set oWB = oExcel.Workbooks.Open("\\192.168.81.12\share\Отдел сопровождения кредитования\Работа с просрочкой\КСМ\подвал\БД (закрытие).xlsx")
+
+If Mid(objDDLloa.Range.Text, 10, 1) = "Л" Then
+zalog = Left(objDDLloa.Range.Text, 10) + "-ДЗ" + " от " + Right(objDDLloa.Range.Text, 13)
+    Else:
+    zalog = Left(objDDLloa.Range.Text, 8) + "ДЗ" + " от " + Right(objDDLloa.Range.Text, 13)
+End If
+
+zalogDB = Left(objDDLloa.Range.Text, 10)
+
+dateQUE = InputBox("Когда были прекращены права на залог?", "Данные по залогу", Format(Date, "dd mmmm yyyy"))
+
+'On Error GoTo zalogNF
+
+
+Plcar = WorksheetFunction.VLookup(zalogDB, oWB.Sheets(2).Columns("B:F"), 5, 0)
+PlYear = WorksheetFunction.VLookup(zalogDB, oWB.Sheets(2).Columns("B:G"), 6, 0)
+PlVIN = WorksheetFunction.VLookup(zalogDB, oWB.Sheets(2).Columns("B:I"), 8, 0)
+PlGN = WorksheetFunction.VLookup(zalogDB, oWB.Sheets(2).Columns("B:J"), 9, 0)
+
+'Selection.Find.ClearFormatting
+'  With Selection.Find
+'    .Text = "Задолженность Заемщика по"
+'    .Replacement.Text = ""
+'    .Forward = True
+'    .Wrap = wdFindContinue
+'  End With
+'  Selection.Find.Execute
+'  Selection.MoveLeft Unit:=wdCharacter, Count:=1
+
+PledgeText = "Предмет залога по Договору залога № " & zalog & vbNewLine & vbTab + "Марка, модель: " & Plcar _
+& vbNewLine & vbTab + "Год выпуска: " & PlYear & vbNewLine & vbTab + "Идентификационный номер VIN: " & PlVIN _
+& vbNewLine & vbTab + "Государственный регистрационный номер: " & PlGN _
+& vbNewLine + "С " & Format(dateQUE, "dd mmmm yyyy") & " г., свободен от прав Займодавца-Залогодержателя."
+
+ With ActiveDocument.Range.Find
+                .Text = "в полном объеме."
+                If .Execute = True Then
+                    .Parent.Collapse Direction:=wdCollapseEnd
+                    .Parent.Select
+                        With Selection
+                        .TypeParagraph
+                        .Range.Text = PledgeText
+                        End With
+                End If
+            End With
+
+oExcel.Quit
+
+'Exit Sub
+'
+'zalogNF:
+'
+'zalogER = "данные не найдены"
+'
+'Selection.Find.ClearFormatting
+'  With Selection.Find
+'    .Text = "Задолженность Заемщика по"
+'    .Replacement.Text = ""
+'    .Forward = True
+'    .Wrap = wdFindContinue
+'  End With
+'  Selection.Find.Execute
+'  Selection.MoveLeft Unit:=wdCharacter, Count:=1
+'
+'Selection.Range.Text = "Предмет залога по Договору залога № " & zalog & vbNewLine & vbTab + "Марка, модель: " & zalogER _
+'& vbNewLine & vbTab + "Год выпуска: " & zalogER & vbNewLine & vbTab + "Идентификационный номер VIN: " & zalogER _
+'& vbNewLine & vbTab + "Государственный регистрационный номер: " & zalogER _
+'& vbNewLine + "С " & Format(dateQUE, "dd mmmm yyyy") & " г., свободен от прав Займодавца-Залогодержателя." & vbNewLine
+'
+'If (faw(ThisDocument.Range, "данные не найдены")) = True Then
+'MsgBox "Данные по залогу не были найдены, необходим ручной копи-паст и 1С", vbExclamation, "Справка об исполнении обязательств"
+'End If
+'
+'oExcel.Quit
+
+Application.ScreenUpdating = True
+
+End Sub
+
+Sub insert_Zalog_Manual()
+
+Dim PledgeText As String
+Dim dateQUE, dateQUEFULL As Date
+
+Application.ScreenUpdating = False
+
+dateQUE = InputBox("Когда были прекращены права на залог?", "Данные по залогу", Format(Date, "dd mmmm yyyy"))
+
+PledgeText = "Предмет залога по Договору залога № ХХХ" & vbNewLine & vbTab + "Марка, модель: ХХХ" _
+& vbNewLine & vbTab + "Год выпуска: ХХХ" & vbNewLine & vbTab + "Идентификационный номер VIN: ХХХ" _
+& vbNewLine & vbTab + "Государственный регистрационный номер: ХХХ" _
+& vbNewLine + "С " & Format(dateQUE, "dd mmmm yyyy") & " г., свободен от прав Займодавца-Залогодержателя."
+
+ With ActiveDocument.Range.Find
+                .Text = "в полном объеме."
+                If .Execute = True Then
+                    .Parent.Collapse Direction:=wdCollapseEnd
+                    .Parent.Select
+                        With Selection
+                        .TypeParagraph
+                        .Range.Text = PledgeText
+                        End With
+                End If
+            End With
+
+Application.ScreenUpdating = True
+
+End Sub
+
+Sub signUP()
+
+Application.ScreenUpdating = False
+
+Dim sig, pos  As ContentControl
+
+Set sig = ThisDocument.SelectContentControlsByTitle("signatory").Item(1)
+Set pos = ThisDocument.SelectContentControlsByTitle("position").Item(1)
+   
+If sig.Range.Text = "Шемякина Светлана Игорьевна" Then
+pos.Range.Text = "Руководитель отдела сопровождения кредитования"
+    Else
+        If sig.Range.Text = "Кваско Сергей Михайлович" Then
+        pos.Range.Text = "Старший специалист отдела сопровождения кредитования"
+            Else
+            If sig.Range.Text = "Кто-то" Then
+            pos.Range.Text = "Какая-то должность"
+            End If
+        End If
+End If
+
+Application.ScreenUpdating = True
+
+End Sub
+
+*функ*
+
+Function faw(r As Range, s As String) As Boolean
+Dim rdup As Range
+Set rdup = r.Duplicate
+rdup.Find.Wrap = wdFindStop
+
+Do While rdup.Find.Execute(findtext:=s, MatchWildcards:=True) = True
+   If (Not rdup.InRange(r)) Then Exit Do
+   rdup.Font.ColorIndex = wdRed
+   rdup.Collapse wdCollapseEnd
+Loop
+
+faw = True
+End Function
+
+Function RemText(fromText As String, toText As String) As Integer
+  Dim rngSt, rngEnd As Long
+  'Количество замен
+  Dim retval As Integer
+  Dim blockFound As Boolean
+  Dim rng As Range 'Где ищем
+  'Начало фрагмента
+  rngSt = ActiveDocument.Range.Start
+  'конец фрагмента
+  rngEnd = ActiveDocument.Range.End
+  Set rng = ActiveDocument.Range
+  
+  Do
+    rng.SetRange rngSt, rngEnd
+    blockFound = False
+    With rng.Find
+      'Ищем начальный текст с конца документа
+      .Text = fromText
+      .Forward = False
+      If .Execute Then
+        rngSt = .Parent.Start
+      Else
+        Exit Do
+      End If
+      'Переопределяем диапазон поиска
+      rng.SetRange rngSt, rngEnd
+      'Ищем конечный текст, начиная с начального текста и до конца документа
+      .Text = toText
+      .Forward = True
+      If .Execute Then
+        rngEnd = .Parent.End
+        blockFound = True
+      End If
+    End With
+    If blockFound Then
+      ActiveDocument.Range(rngSt, rngEnd).Delete
+      retval = retval + 1
+    End If
+    rngEnd = rngSt
+    rngSt = ActiveDocument.Range.Start
+  Loop While True
+  RemText = retval
+  
+End Function
+
+*легаси* 
+
+Sub delPeni()
+Const UDC = "Пени" 'текст, наличие которого грохает абзац
+Dim i As Long     'счётчик абзацев
+ 
+With ActiveDocument 'работаем в активном документе Word
+    i = .Paragraphs.Count
+    '''''''''''''''''''''''''''''''''''''''''это незаконно''''''''
+    '.Range.Find.Execute Chr(11), replacewith:=Chr(13), Replace:=wdReplaceAll
+    'заменили разрывы строк (код 11) символами абзацев (код 13)
+    '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+    'Переберём все абзацы и удалим те, в которых есть данный текст
+    Do While i > 0
+        If LCase(.Paragraphs(i).Range.Text) Like "*" & LCase(UDC) & "*" Then
+             Debug.Print i, .Paragraphs(i).Range.Text
+             .Paragraphs(i).Range.Delete 'удалили весь абзац, где был текст константы UDC
+             'ненужный абзац удалён
+        End If
+        i = i - 1
+    Loop
+ 
+End With
+ 
+End Sub
+
+Sub delGosPoshl()
+
+Const UDC = "Госпошлина" 'текст, наличие которого грохает абзац
+Dim i As Long     'счётчик абзацев
+ 
+With ActiveDocument 'работаем в активном документе Word
+    i = .Paragraphs.Count
+    '''''''''''''''''''''''''''''''''''''''''это незаконно''''''''
+    '.Range.Find.Execute Chr(11), replacewith:=Chr(13), Replace:=wdReplaceAll
+    'заменили разрывы строк (код 11) символами абзацев (код 13)
+    '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+    'Переберём все абзацы и удалим те, в которых есть данный текст
+    Do While i > 0
+        If LCase(.Paragraphs(i).Range.Text) Like "*" & LCase(UDC) & "*" Then
+             Debug.Print i, .Paragraphs(i).Range.Text
+             .Paragraphs(i).Range.Delete 'удалили весь абзац, где был текст константы UDC
+             'ненужный абзац удалён
+        End If
+        i = i - 1
+    Loop
+ 
+End With
+
+End Sub
